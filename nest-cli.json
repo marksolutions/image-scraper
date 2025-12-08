@@ -1,0 +1,29 @@
+{
+  "monorepo": true,
+  "root": "apps/image-scraper-monorepo",
+  "sourceRoot": "apps/image-scraper-monorepo/src",
+  "compilerOptions": {
+    "webpack": true,
+    "tsConfigPath": "apps/image-scraper-monorepo/tsconfig.app.json"
+  },
+  "projects": {
+    "image-scraper-monorepo": {
+      "type": "application",
+      "root": "apps/image-scraper-monorepo",
+      "entryFile": "main",
+      "sourceRoot": "apps/image-scraper-monorepo/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/image-scraper-monorepo/tsconfig.app.json"
+      }
+    },
+    "server": {
+      "type": "application",
+      "root": "apps/server",
+      "entryFile": "main",
+      "sourceRoot": "apps/server/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/server/tsconfig.app.json"
+      }
+    }
+  }
+}
