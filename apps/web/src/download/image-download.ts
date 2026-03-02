@@ -1,5 +1,7 @@
 import { css, html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
+import "./form-collections";
+import type { FormCollectionItem, FormCollections } from "./form-collections";
 
 @customElement("image-download")
 export class ImageDownload extends LitElement {
@@ -12,14 +14,6 @@ export class ImageDownload extends LitElement {
       max-width: 600px;
     }
 
-    input,
-    textarea {
-      width: 100%;
-      padding: 8px;
-      margin: 8px 0;
-      font-size: 1rem;
-    }
-
     button {
       padding: 10px 16px;
       cursor: pointer;
@@ -27,50 +21,60 @@ export class ImageDownload extends LitElement {
     }
   `;
 
-  async handleSubmit() {
-    this.isSubmitting = true;
-    const zipInput = this.renderRoot.querySelector("input.zip") as HTMLInputElement;
-    const textareaUrls = this.renderRoot.querySelector("textarea.urls") as HTMLTextAreaElement;
-
-    const zipName = zipInput.value;
-    const urls = textareaUrls.value.split("\n");
-    const urlList = urls.map((u) => u.trim()).filter((u) => u.length > 0);
-
-    if (!zipName || urlList.length === 0) {
-      alert("Please provide zip name and at least one URL.");
-      return;
+  private async download(name: string, urls: string[]) {
+    if (!name || urls.length === 0) {
+      throw new Error("Invalid name or empty URL list");
     }
 
-    try {
-      const response = await fetch("http://localhost:8000/api/download", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          urls: urlList,
-        }),
-      });
+    const response = await fetch("http://localhost:8000/api/download", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ urls }),
+    });
 
-      if (!response.ok) {
-        throw new Error("Failed to download file");
+    if (!response.ok) {
+      throw new Error("Failed to download file");
+    }
+
+    const blob = await response.blob();
+    const fileUrl = window.URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = fileUrl;
+    a.download = `${name}.zip`;
+    document.body.appendChild(a);
+    a.click();
+
+    a.remove();
+    window.URL.revokeObjectURL(fileUrl);
+  }
+
+  /**
+   * Sequential download handler
+   */
+  private async handleSubmit(e: CustomEvent<FormCollectionItem[]>) {
+    this.isSubmitting = true;
+
+    const formCollections = this.renderRoot.querySelector("form-collections") as FormCollections;
+
+    const collections = formCollections.value;
+
+    try {
+      // Sequential loop (IMPORTANT: await inside loop)
+      for (const item of collections) {
+        const name = item.name.trim();
+        const urls = item.links
+          .split("\n")
+          .map((u) => u.trim())
+          .filter((u) => u.length > 0);
+
+        await this.download(name, urls);
       }
 
-      // Convert response stream → Blob
-      const blob = await response.blob();
-
-      // Build a temporary download link
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${zipName}.zip`;
-      document.body.appendChild(a);
-      a.click();
-
-      // Clean up
-      a.remove();
-      window.URL.revokeObjectURL(url);
+      formCollections.reset()
     } catch (err) {
       console.error(err);
-      alert("Failed to download ZIP");
+      alert("Failed to download one of the ZIP files.");
     } finally {
       this.isSubmitting = false;
     }
@@ -78,17 +82,13 @@ export class ImageDownload extends LitElement {
 
   override render() {
     return html`
-      <h2>Download Images as ZIP</h2>
+      <h2>Download</h2>
 
-      <form>
-        <label>ZIP Name</label>
-        <input class="zip" type="text" placeholder="images-pack" />
-
-        <label>Image URLs (one per line)</label>
-        <textarea class="urls" rows="8" placeholder="https://example.com/image1.jpg"></textarea>
-
-        <button ?disabled=${this.isSubmitting} @click="${this.handleSubmit}">Download ZIP</button>
-      </form>
+      <form-collections
+        name=""
+        ?disabled=${this.isSubmitting}
+        @change=${this.handleSubmit}
+      ></form-collections>
     `;
   }
 }
